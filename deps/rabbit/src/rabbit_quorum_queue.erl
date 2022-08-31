@@ -553,14 +553,16 @@ is_recoverable(Q) ->
 -spec recover(binary(), [amqqueue:amqqueue()]) ->
     {[amqqueue:amqqueue()], [amqqueue:amqqueue()]}.
 recover(_Vhost, Queues) ->
+    {All, _Disk, _Running} = rabbit_mnesia:cluster_nodes(status),
     lists:foldl(
       fun (Q0, {R0, F0}) ->
          {Name, _} = amqqueue:get_pid(Q0),
          QName = amqqueue:get_name(Q0),
-         Nodes = get_nodes(Q0),
+         Members = get_nodes(Q0),
          Formatter = {?MODULE, format_ra_event, [QName]},
+         % the current Mnesia distribution is passed as "All" variable
          Res = case ra:restart_server(?RA_SYSTEM, {Name, node()},
-                                      #{ra_event_formatter => Formatter}) of
+                                      #{ra_event_formatter => Formatter, nodes => All}) of
                    ok ->
                        % queue was restarted, good
                        ok;
@@ -570,9 +572,11 @@ recover(_Vhost, Queues) ->
                        % queue was never started on this node
                        % so needs to be started from scratch.
                        Machine = ra_machine(Q0),
-                       RaNodes = [{Name, Node} || Node <- Nodes],
+                       % nodes are filtered accordingly to Mnesia distribution
+                       RaNodes0 = [{Name, Node} || Node <- Members],
+                       RaNodes1 = [Node || Node <- RaNodes0, lists:member(Node, All)],
                        case ra:start_server(?RA_SYSTEM, Name, {Name, node()},
-                                            Machine, RaNodes) of
+                                            Machine, RaNodes1) of
                            ok -> ok;
                            Err2 ->
                                rabbit_log:warning("recover: quorum queue ~w could not"
