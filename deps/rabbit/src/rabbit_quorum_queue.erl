@@ -561,8 +561,7 @@ recover(_Vhost, Queues) ->
          Members = get_nodes(Q0),
          Formatter = {?MODULE, format_ra_event, [QName]},
          % the current Mnesia distribution is passed as "All" variable
-         Res = case ra:restart_server(?RA_SYSTEM, {Name, node()},
-                                      #{ra_event_formatter => Formatter, nodes => All}) of
+         Res = case ra:force_restart_server(?RA_SYSTEM, {Name, node()}, All, #{ra_event_formatter => Formatter}) of
                    ok ->
                        % queue was restarted, good
                        ok;
