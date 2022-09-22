@@ -75,7 +75,10 @@ get_config(quorum_queues = RaSystem) ->
     Checksums = application:get_env(rabbit, quorum_compute_checksums, true),
     WalChecksums = application:get_env(rabbit, quorum_wal_compute_checksums, Checksums),
     SegmentChecksums = application:get_env(rabbit, quorum_segment_compute_checksums, Checksums),
+    QuorumDataDir = filename:join([rabbit_mnesia:dir(), "quorum", node()]),
+
     DefaultConfig#{name => RaSystem, % names => ra_system:derive_names(quorum)
+                   data_dir => QuorumDataDir,
                    wal_compute_checksums => WalChecksums,
                    segment_compute_checksums => SegmentChecksums};
 get_config(coordination = RaSystem) ->
