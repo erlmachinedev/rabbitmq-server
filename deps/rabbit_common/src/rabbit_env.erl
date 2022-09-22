@@ -81,6 +81,7 @@
          "RABBITMQ_STREAM_DIR",
          "RABBITMQ_UPGRADE_LOG",
          "RABBITMQ_USE_LONGNAME",
+         "RABBITMQ_RA",
          "SYS_PREFIX"
         ]).
 
@@ -166,7 +167,8 @@ get_context_after_reloading_env(Context) ->
              fun erlang_dist_tcp_port/1,
              fun product_name/1,
              fun product_version/1,
-             fun motd_file/1
+             fun motd_file/1,
+             fun rabbitmq_ra/1
             ],
 
     run_context_steps(Context, Steps).
@@ -1309,6 +1311,22 @@ rabbitmq_home(Context) ->
         Value ->
             Dir = normalize_path(Value),
             update_context(Context, rabbitmq_home, Dir, environment)
+    end.
+
+%% -------------------------------------------------------------------
+%%
+%%  RABBITMQ_RA
+%%
+%%
+
+rabbitmq_ra(Context) ->
+    case get_env_var("RABBITMQ_RA") of
+      false ->
+          update_context(Context, rabbitmq_ra, _Default = [], default);
+      Value ->
+          Res0 = string:split(Value, ":", all),
+          Res1 = [list_to_atom(N) || N <- Res0],
+          update_context(Context, rabbitmq_ra, Res1, environment)
     end.
 
 %% -------------------------------------------------------------------

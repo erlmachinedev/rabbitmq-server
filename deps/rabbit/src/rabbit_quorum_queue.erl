@@ -553,7 +553,15 @@ is_recoverable(Q) ->
 -spec recover(binary(), [amqqueue:amqqueue()]) ->
     {[amqqueue:amqqueue()], [amqqueue:amqqueue()]}.
 recover(_Vhost, Queues) ->
-    {All, _Disk, _Running} = rabbit_mnesia:cluster_nodes(status),
+    #{rabbitmq_ra := Ra} = rabbit_prelaunch:get_context(),
+    All = case Ra of
+            [] ->
+              {Nodes, _Disk, _Running} = rabbit_mnesia:cluster_nodes(status),
+              Nodes;
+            _ ->
+              Ra
+          end,
+    io:format("Raft setup on recover: ~p",[All]),
     lists:foldl(
       fun (Q0, {R0, F0}) ->
          {Name, _} = amqqueue:get_pid(Q0),
@@ -568,6 +576,7 @@ recover(_Vhost, Queues) ->
                    {error, Err1}
                      when Err1 == not_started orelse
                           Err1 == name_not_registered ->
+                       io:format("~nDetected an error: ~p~n",[Err1]),
                        % queue was never started on this node
                        % so needs to be started from scratch.
                        Machine = ra_machine(Q0),
@@ -578,11 +587,13 @@ recover(_Vhost, Queues) ->
                                             Machine, RaNodes1) of
                            ok -> ok;
                            Err2 ->
+                               io:format("~nDetected a second error: ~p~n",[Err2]),
                                rabbit_log:warning("recover: quorum queue ~w could not"
                                                   " be started ~w", [Name, Err2]),
                                fail
                        end;
-                   {error, {already_started, _}} ->
+                   {error, {already_started, Pid0}} ->
+                       io:format("~nAlready started: ~p~n",[Pid0]),
                        %% this is fine and can happen if a vhost crashes and performs
                        %% recovery whilst the ra application and servers are still
                        %% running
